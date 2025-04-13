@@ -163,7 +163,8 @@ IDxcBlob* CompileShader(
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	///////////////////////////////////////
-	///	ウィンドウクラスを登録する
+	///  WinMain関数の先頭で行う
+	/// ウィンドウクラスを登録する
 	///////////////////////////////////////
 #pragma region
 	// ウィンドウクラス作成
@@ -194,7 +195,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 
 	///////////////////////////////////////
-	///	ウィンドウを生成して表示
+	///	ウィンドウを生成　CreateWindow
 	///////////////////////////////////////
 #pragma region
 	// ウィンドウの生成
@@ -211,6 +212,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		wc.hInstance,			// インスタンスハンドル
 		nullptr					// オプション
 	);
+#pragma endregion
+
+	///////////////////////////////////////
+	/// CreateWindowの直後に行う
+	///	DebugLayer
+	///////////////////////////////////////
+#ifdef _DEBUG
+	ID3D12Debug1* debugController = nullptr;
+	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+	{
+		// デバッグレイヤーを有効化する
+		debugController->EnableDebugLayer();
+		// さらにＧＰＵ側でもチェックを行うようにする
+		debugController->SetEnableGPUBasedValidation(TRUE);
+	}
+#endif
+
+	///////////////////////////////////////
+	///	ウィンドウを表示
+	///////////////////////////////////////
+#pragma region
 
 	// ウィンドウを表示する
 	ShowWindow(hwnd, SW_SHOW);
@@ -240,6 +262,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 
 	///////////////////////////////////////
+	/// ウィンドウを作成した後、メインループがはじまる前に行う
 	///	DXGIFactoryの生成
 	///////////////////////////////////////
 #pragma region
@@ -318,9 +341,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
 		// 警告時に止まる
 		//infoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
-		// 解放
-		infoQueue->Release();
-
 		// 抑制するメッセージのID
 		D3D12_MESSAGE_ID denyIds[]{
 			// Windows11でのDXGIデバッグレイヤーとDX12デバッグレイヤーの相互作用パグによるエラーメッセージ
@@ -337,6 +357,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		filter.DenyList.pSeverityList = severities;
 		// 指定したメッセージの表示を抑制する
 		infoQueue->PushStorageFilter(&filter);
+		// 解放
+		infoQueue->Release();
+
 	}
 
 
@@ -485,7 +508,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	commandList->ResourceBarrier(1, &barrier);
 #pragma endregion
 
-
 	// 描画先のRTVを設定する
 	commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false, nullptr);
 	// 指定した色で画面全体をクリアする
@@ -511,6 +533,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 
 	///////////////////////////////////////
+	/// メインループの開始前に作る
 	///	FenceとEventを生成する
 	///////////////////////////////////////
 #pragma region
@@ -551,9 +574,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///	Feenceの値を確認してGPUを待つ
 	///////////////////////////////////////
 #pragma region
+	// Fenceの値が指定したSignal値にたどり着いているか確認する
+	// GetCompletedValueの初期値はFence作成時に渡した初期値
 	if (fence->GetCompletedValue() < FenceValue)
 	{
+		// 指定したSignalにたどりついていないので、たどり着くまで待つようにイベントを設定する
 		fence->SetEventOnCompletion(FenceValue, fenceEvent);
+		// イベント待つ
 		WaitForSingleObject(fenceEvent, INFINITE);
 	}
 
@@ -568,23 +595,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-	///////////////////////////////////////
-	///	DebugLayer
-	///////////////////////////////////////
-#ifdef _DEBUG
-	ID3D12Debug1* debugController = nullptr;
-	if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
-	{
-		// デバッグレイヤーを有効化する
-		debugController->EnableDebugLayer();
-		// さらにＧＰＵ側でもチェックを行うようにする
-		debugController->SetEnableGPUBasedValidation(TRUE);
-	}
-#endif
 
 
 
-	//
 	///////////////////////////////////////
 	///	DXCの初期化
 	///////////////////////////////////////
@@ -603,11 +616,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-	//
 	///////////////////////////////////////
 	///	PSO
 	///////////////////////////////////////
 #pragma region
+
 	///////////////////////////////////////
 	///	RootSignatureの作成
 	///////////////////////////////////////
@@ -629,6 +642,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	hr = device->CreateRootSignature(0, signatureBlob->GetBufferPointer(), signatureBlob->GetBufferSize(), IID_PPV_ARGS(&rootSignature));
 	assert(SUCCEEDED(hr));
 #pragma endregion
+
 	///////////////////////////////////////
 	///	InputLayoutの設定を行う
 	///////////////////////////////////////
@@ -644,6 +658,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 #pragma endregion
+
 	///////////////////////////////////////
 	///	BlendStateの設定を行う
 	///////////////////////////////////////
@@ -653,6 +668,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 全ての色要素を書き込む
 	blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 #pragma endregion
+
 	///////////////////////////////////////
 	///	RasterizerStateの設定を行う
 	///////////////////////////////////////
@@ -664,6 +680,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 三角形の中を塗りつぶす
 	rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
 #pragma endregion
+
 	///////////////////////////////////////
 	///	シェーダー(VertexShader&PixelShader)をコンパイルする
 	///////////////////////////////////////
@@ -676,6 +693,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		L"vs_6_0", dxcUtils, dxcCompiler, includeHandler);
 	assert(pixelShaderBlob != nullptr);
 #pragma endregion
+
 	///////////////////////////////////////
 	///	PSOを生成する
 	///////////////////////////////////////
@@ -712,7 +730,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 
-	//
 	///////////////////////////////////////
 	///	VertexResourseを生成する
 	///////////////////////////////////////
@@ -739,7 +756,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	assert(SUCCEEDED(hr));
 #pragma endregion
 
-	//
 	///////////////////////////////////////
 	///	VertexBufferViewを生成する
 	///////////////////////////////////////
@@ -754,7 +770,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	vertexBufferView.StrideInBytes = sizeof(Vector4);
 #pragma endregion
 
-	//
 	///////////////////////////////////////
 	///	Resourseにデータを書き込む
 	///////////////////////////////////////
@@ -772,7 +787,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-	//
 	///////////////////////////////////////
 	///	ViewportとScissor
 	///////////////////////////////////////
@@ -839,12 +853,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 
-
-
 	///////////////////////////////////////
+	/// returnの前に行う
 	///	解放処理
 	///////////////////////////////////////
 #pragma region
+	vertexResource->Release();
+	graphicsPipelineState->Release();
+	signatureBlob->Release();
+	if (errorBlob)
+	{
+		errorBlob->Release();
+	}
+	rootSignature->Release();
+	pixelShaderBlob->Release();
+	vertexShaderBlob->Release();
+
 	CloseHandle(fenceEvent);
 	fence->Release();
 	rtvDescriptorHeap->Release();
@@ -862,16 +886,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #endif // _DEBUG
 	CloseWindow(hwnd);
 
-	vertexResource->Release();
-	graphicsPipelineState->Release();
-	signatureBlob->Release();
-	if (errorBlob)
-	{
-		errorBlob->Release();
-	}
-	rootSignature->Release();
-	pixelShaderBlob->Release();
-	vertexShaderBlob->Release();
 
 
 	// リソースリークチェック
