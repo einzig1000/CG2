@@ -299,6 +299,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			//採用したアダプタの情報をログに出力。
 			Log(ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
+			Log(logStream,ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
 			break;
 		}
 		useAdapter = nullptr; // ソフトウェアアダプタの場合は見なかったことにする
