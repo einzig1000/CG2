@@ -518,6 +518,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };// 青っぽい色。RGBAの順
 	commandList->ClearRenderTargetView(rtvHandles[backBufferIndex], clearColor, 0, nullptr);
 
+
 	///////////////////////////////////////
 	/// 画面表示できるようにする
 	///////////////////////////////////////
@@ -528,7 +529,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 #pragma endregion
-
 
 	// コマンドリストの内容を確定させる。全てのコマンドを積んでからCloseすること
 	hr = commandList->Close();
@@ -558,6 +558,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///	DXCの初期化
 	///////////////////////////////////////
 #pragma region
+
 	// dxcCompilerを初期化
 	IDxcUtils* dxcUtils = nullptr;
 	IDxcCompiler3* dxcCompiler = nullptr;
@@ -821,18 +822,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///	コマンドを積む
 	///////////////////////////////////////
 #pragma region
+	// Viewportを設定
 	commandList->RSSetViewports(1, &viewport);
+	// Scirssorを設定
 	commandList->RSSetScissorRects(1, &scissorRect);
-	// 
+	// RootSignatureを設定。
 	commandList->SetGraphicsRootSignature(rootSignature);
 	commandList->SetPipelineState(graphicsPipelineState);
 	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	// 
+	// 形状を設定
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	// 
+	// 描画
 	commandList->DrawInstanced(3, 1, 0, 0);
-
-
 
 #pragma endregion
 
@@ -909,3 +910,4 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 	return 0;
 }
+
