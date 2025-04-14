@@ -91,7 +91,7 @@ static LONG WINAPI ExportDump(EXCEPTION_POINTERS* exception)
 	GetLocalTime(&time);
 	wchar_t filePath[MAX_PATH] = { 0 };
 	CreateDirectory(L"./Dumps", nullptr);
-	StringCchPrintfW(filePath, MAX_PATH, L"./Dumps/%04d-%02d%02-%02%02d.dmp", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute);
+	StringCchPrintfW(filePath, MAX_PATH, L"./Dumps/%04d-%02d%02d-%02d%02d.dmp", time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute);
 	HANDLE dumpFileHandle = CreateFile(filePath, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, 0, CREATE_ALWAYS, 0, 0);
 	// processId (このexeのId) とクラッシュ (例外)の発生したthreadIdを取得
 	DWORD processId = GetCurrentProcessId();
@@ -191,6 +191,7 @@ IDxcBlob* CompileShader(
 // Windowsアプリでのエントリーポイント(main関数)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
+	SetUnhandledExceptionFilter(ExportDump);
 	///////////////////////////////////////
 	///  WinMain関数の先頭で行う
 	/// ウィンドウクラスを登録する
@@ -599,7 +600,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-
 	///////////////////////////////////////
 	///	コマンドをキックする
 	///////////////////////////////////////
@@ -645,9 +645,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	assert(SUCCEEDED(hr));
 
 #pragma endregion
-
-
-
 
 	///////////////////////////////////////
 	///	PSO
@@ -761,8 +758,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-
-
 	///////////////////////////////////////
 	///	VertexResourseを生成する
 	///////////////////////////////////////
@@ -868,6 +863,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///	メインループ
 	///////////////////////////////////////
 	MSG msg{};
+	//uint16_t* p = nullptr;
+	//*p = 190;
 	// ウィンドウの×ボタンが押されるまでループ
 	while (msg.message != WM_QUIT)
 	{
