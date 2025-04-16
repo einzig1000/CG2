@@ -926,8 +926,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///	メインループ
 	///////////////////////////////////////
 	MSG msg{};
-	//uint16_t* p = nullptr;
-	//*p = 190;
+	uint16_t* p = nullptr;
+	*p = 190;
 	// ウィンドウの×ボタンが押されるまでループ
 	while (msg.message != WM_QUIT)
 	{
@@ -940,6 +940,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else
 		{
 			// ゲームの処理
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 		}
 	}
