@@ -562,57 +562,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-	///////////////////////////////////////
-	///	コマンドを積み込んで確定させる　&&　	TransitionBarrierを張る  &&  TransitionBarrierを張る
-	///////////////////////////////////////
-#pragma region
-	// これから書き込むバックバッファのインデックスを取得
-	UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
-
-	///////////////////////////////////////
-	///	TransitionBarrierを張る
-	///////////////////////////////////////
-#pragma region
-	// TransitionBarrierの設定
-	D3D12_RESOURCE_BARRIER barrier{};
-	// 今回のバリアはTransition
-	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	// Noneにしておく
-	barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	// バリアを張る対象のリソース。現在のバッファに対して行う
-	barrier.Transition.pResource = swapChainResources[backBufferIndex];
-	// 遷移前（現在）のResourceState
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	// 遷移後のResourceState
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	// TransitionBarrierを張る
-	commandList->ResourceBarrier(1, &barrier);
-#pragma endregion
-
-	// 描画先のRTVを設定する
-	commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false, nullptr);
-	// 指定した色で画面全体をクリアする
-	float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };// 青っぽい色。RGBAの順
-	commandList->ClearRenderTargetView(rtvHandles[backBufferIndex], clearColor, 0, nullptr);
-
-
-	///////////////////////////////////////
-	/// 画面表示できるようにする
-	///////////////////////////////////////
-#pragma region
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-	commandList->ResourceBarrier(1, &barrier);
-
-
-#pragma endregion
-
-	// コマンドリストの内容を確定させる。全てのコマンドを積んでからCloseすること
-	hr = commandList->Close();
-	assert(SUCCEEDED(hr));
-
-#pragma endregion
 
 	///////////////////////////////////////
 	/// メインループの開始前に作る
@@ -648,54 +598,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	IDxcIncludeHandler* includeHandler = nullptr;
 	hr = dxcUtils->CreateDefaultIncludeHandler(&includeHandler);
 	assert(SUCCEEDED(hr));
-
-#pragma endregion
-
-	///////////////////////////////////////
-	///	コマンドをキックする
-	///////////////////////////////////////
-#pragma region
-	// GPUにコマンドリストの実行を行わせる
-	ID3D12CommandList* commandLists[] = { commandList };
-	commandQueue->ExecuteCommandLists(1, commandLists);
-	// GPUとOSに画面の交換を行うよう通知する
-	swapChain->Present(1, 0);
-
-	///////////////////////////////////////
-	///	GPUにSignalを送る
-	///////////////////////////////////////
-#pragma region
-	// Fenceの値を更新
-	FenceValue++;
-	// GPUがここまでたどり着いた時に、Fenceの値を指定した値に代入するようにSignalを送る
-	commandQueue->Signal(fence, FenceValue);
-
-#pragma endregion
-
-	///////////////////////////////////////
-	///	Feenceの値を確認してGPUを待つ
-	///////////////////////////////////////
-#pragma region
-	// Fenceの値が指定したSignal値にたどり着いているか確認する
-	// GetCompletedValueの初期値はFence作成時に渡した初期値
-	if (fence->GetCompletedValue() < FenceValue)
-	{
-		// 指定したSignalにたどりついていないので、たどり着くまで待つようにイベントを設定する
-		fence->SetEventOnCompletion(FenceValue, fenceEvent);
-		// イベント待つ
-		WaitForSingleObject(fenceEvent, INFINITE);
-	}
-
-#pragma endregion
-
-
-	// 次のフレーム用のコマンドリスを準備
-	hr = commandAllocator->Reset();
-	assert(SUCCEEDED(hr));
-	hr = commandList->Reset(commandAllocator, nullptr);
-	assert(SUCCEEDED(hr));
-
-#pragma endregion
 
 	///////////////////////////////////////
 	///	PSO
@@ -901,23 +803,18 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 #pragma endregion
 
-	///////////////////////////////////////
-	///	コマンドを積む
-	///////////////////////////////////////
-#pragma region
-	// Viewportを設定
-	commandList->RSSetViewports(1, &viewport);
-	// Scirssorを設定
-	commandList->RSSetScissorRects(1, &scissorRect);
-	// RootSignatureを設定。
+	//コマンドを積む//
+	commandList->RSSetViewports(1, &viewport);//Viewportを設定
+	commandList->RSSetScissorRects(1, &scissorRect);//Sxirssorを設定
+	//RootSignatureを設定。POSに設定しているけど別途設定が必要
 	commandList->SetGraphicsRootSignature(rootSignature);
-	commandList->SetPipelineState(graphicsPipelineState);
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	// 形状を設定
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->SetPipelineState(graphicsPipelineState);//PSOを設定
+	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);//VBVを設定
+	//形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
+	commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	// マテリアルCBufferの場所を設定
 	commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
-	// 描画
+	//描画！（DrawCall/ドローコール）。3頂点で1つのインスタンス。インスタンスについては今後
 	commandList->DrawInstanced(3, 1, 0, 0);
 
 #pragma endregion
@@ -940,7 +837,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		else
 		{
 			// ゲームの処理
-
 
 			//これから書き込むバックバッファのインデックスを取得
 			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
@@ -1022,6 +918,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			assert(SUCCEEDED(hr));
 			hr = commandList->Reset(commandAllocator, nullptr);
 			assert(SUCCEEDED(hr));
+
 
 
 
