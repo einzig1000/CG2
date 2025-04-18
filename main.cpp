@@ -17,6 +17,7 @@
 #include <DbgHelp.h>
 #pragma comment (lib, "Dbghelp.lib")
 #include <cassert>
+#include "functions.h"
 
 // Vector4型を定義する
 struct Vector4 {
@@ -448,7 +449,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	materialResource->Map(0, nullptr, reinterpret_cast<void**>(&materialData));
 	// 今回は赤を書き込んでみる
 	*materialData = Vector4(1.0f, 0.0f, 0.0f, 1.0f);
-
 #pragma endregion
 
 	///////////////////////////////////////
@@ -818,6 +818,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	hr = device->CreateGraphicsPipelineState(&graphicsPipelineStateDesc, IID_PPV_ARGS(&graphicsPipelineState));
 	assert(SUCCEEDED(hr));
 #pragma endregion
+
+#pragma endregion
+
+	///////////////////////////////////////
+	///	TransformationMatrix用のResourceを作る & CBVを設定する
+	///////////////////////////////////////
+#pragma region
+	// WVP用のリソースを作る。Matrix4x4　１つ分のサイズを用意する
+	ID3D12Resource* wvpResource = CreateBufferResource(device, sizeof(Matrix4x4));
+	// データを書き込む
+	Matrix4x4* wvpData = nullptr;
+	// 書き込むためのアドレスを取得
+	wvpResource->Map(0, nullptr, reinterpret_cast<void**>(&wvpData));
+	// 単位行列を書き込んでおく
+	*wvpData = MakeIdentity4x4();
+
+	// wvp用のCBufferの場所を特定
+	commandList->SetGraphicsRootConstantBufferView(1, wvpResource->GetGPUVirtualAddress());
 
 #pragma endregion
 
