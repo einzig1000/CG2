@@ -866,9 +866,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// 左下
 	vertexData[0] = { -0.5f, -0.5f, 0.0f, 1.0f };
 	// 上
-	vertexData[0] = { 0.0f, 0.5f, 0.0f, 1.0f };
+	vertexData[1] = { 0.0f, 0.5f, 0.0f, 1.0f };
 	// 右下
-	vertexData[0] = { 0.5f, -0.5f, 0.0f, 1.0f };
+	vertexData[2] = { 0.5f, -0.5f, 0.0f, 1.0f };
 
 #pragma endregion
 
@@ -897,27 +897,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 
 	///////////////////////////////////////
-	///	コマンドを積む
-	///////////////////////////////////////
-#pragma region
-	// Viewportを設定
-	commandList->RSSetViewports(1, &viewport);
-	// Scirssorを設定
-	commandList->RSSetScissorRects(1, &scissorRect);
-	// RootSignatureを設定。
-	commandList->SetGraphicsRootSignature(rootSignature);
-	commandList->SetPipelineState(graphicsPipelineState);
-	commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
-	// 形状を設定
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	// マテリアルCBufferの場所を設定
-	commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
-	// 描画
-	commandList->DrawInstanced(3, 1, 0, 0);
-
-#pragma endregion
-
-	///////////////////////////////////////
 	///	メインループ
 	///////////////////////////////////////
 	MSG msg{};
@@ -937,7 +916,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			// ゲームの処理
 
 			///////////////////////////////////////
-			///	TransitionBarrierを張る
+			///	TransitionBarrierを張る(TransitionBarrierの命令を実行する)
 			///////////////////////////////////////
 #pragma region
 			// これから書き込むバックバッファのインデックスを取得
@@ -949,7 +928,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 			// 遷移後のResourceState
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			// TransitionBarrierを張る(TransitionBarrierの命令を実行する)
+			// TransitionBarrierを張る
 			commandList->ResourceBarrier(1, &barrier);
 
 			//描画先のRTVを設定する
@@ -972,6 +951,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 			commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
 			// 形状を設定
 			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			commandList->SetGraphicsRootConstantBufferView(0, materialResource->GetGPUVirtualAddress());
 			// 描画
 			commandList->DrawInstanced(3, 1, 0, 0);
 #pragma endregion
