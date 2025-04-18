@@ -229,7 +229,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	SetUnhandledExceptionFilter(ExportDump);
 	///////////////////////////////////////
-	///  WinMain関数の先頭で行う
 	/// ウィンドウクラスを登録する
 	///////////////////////////////////////
 #pragma region
@@ -281,7 +280,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #pragma endregion
 
 	///////////////////////////////////////
-	/// CreateWindowの直後に行う
 	///	DebugLayer
 	///////////////////////////////////////
 #ifdef _DEBUG
@@ -362,7 +360,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			//採用したアダプタの情報をログに出力。
 			Log(ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
-			Log(logStream,ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
+			Log(logStream, ConvertString(std::format(L"Use Adapater:{}\n", adapterDesc.Description)));
 			break;
 		}
 		useAdapter = nullptr; // ソフトウェアアダプタの場合は見なかったことにする
@@ -533,7 +531,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	// Resourceの取得がうまくいかなかったので起動できない
 	hr = swapChain->GetBuffer(0, IID_PPV_ARGS(&swapChainResources[0]));
 	assert(SUCCEEDED(hr));
-	hr = swapChain->GetBuffer(0, IID_PPV_ARGS(&swapChainResources[1]));
+	hr = swapChain->GetBuffer(1, IID_PPV_ARGS(&swapChainResources[1]));
 	assert(SUCCEEDED(hr));
 
 #pragma endregion
@@ -664,13 +662,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 	///////////////////////////////////////
 	///	GPUにSignalを送る
 	///////////////////////////////////////
-#pragma region
 	// Fenceの値を更新
 	FenceValue++;
 	// GPUがここまでたどり着いた時に、Fenceの値を指定した値に代入するようにSignalを送る
 	commandQueue->Signal(fence, FenceValue);
-
-#pragma endregion
 
 	///////////////////////////////////////
 	///	Feenceの値を確認してGPUを待つ
@@ -941,93 +936,111 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 		{
 			// ゲームの処理
 
+			///////////////////////////////////////
+			///	TransitionBarrierを張る
+			///////////////////////////////////////
+#pragma region
+			// これから書き込むバックバッファのインデックスを取得
+			backBufferIndex = swapChain->GetCurrentBackBufferIndex();
 
-			//これから書き込むバックバッファのインデックスを取得
-			UINT backBufferIndex = swapChain->GetCurrentBackBufferIndex();
-
-			//TransitionBarrierを張る//
-			D3D12_RESOURCE_BARRIER barrier{};
-			//今回バリアはTransition
-			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-			//Noneにしておく
-			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-			//バリアを張る対象のリソース。現在のバックバッファに対して行う
+			// バリアを張る対象のリソース。現在のバッファに対して行う
 			barrier.Transition.pResource = swapChainResources[backBufferIndex];
-			//遷移前（現在）のResouce
+			// 遷移前（現在）のResourceState
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-			//遷移後のResouce
+			// 遷移後のResourceState
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-			//TransitionBarrierを張る
+			// TransitionBarrierを張る(TransitionBarrierの命令を実行する)
 			commandList->ResourceBarrier(1, &barrier);
 
 			//描画先のRTVを設定する
 			commandList->OMSetRenderTargets(1, &rtvHandles[backBufferIndex], false, nullptr);
 			//指定した色で画面全体をクリアする
-			float clearColor[] = { 0.1f,0.25f,0.5f,1.0f };//青っぽい色。RGBAの順
 			commandList->ClearRenderTargetView(rtvHandles[backBufferIndex], clearColor, 0, nullptr);
+#pragma endregion
 
-			//コマンドを積む//
-			commandList->RSSetViewports(1, &viewport);//Viewportを設定
-			commandList->RSSetScissorRects(1, &scissorRect);//Sxirssorを設定
-			//RootSignatureを設定。POSに設定しているけど別途設定が必要
+			///////////////////////////////////////
+			///	コマンドを積む
+			///////////////////////////////////////
+#pragma region
+			// Viewportを設定
+			commandList->RSSetViewports(1, &viewport);
+			// Scirssorを設定
+			commandList->RSSetScissorRects(1, &scissorRect);
+			// RootSignatureを設定。
 			commandList->SetGraphicsRootSignature(rootSignature);
-			commandList->SetPipelineState(graphicsPipelineState);//PSOを設定
-			commandList->IASetVertexBuffers(0, 1, &vertexBufferView);//VBVを設定
-			//形状を設定。PSOに設定しているものとはまた別。同じものを設定すると考えておけばいい
-			commandList->IASetPrimitiveTopology(D3D10_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			//描画！（DrawCall/ドローコール）。3頂点で1つのインスタンス。インスタンスについては今後
+			commandList->SetPipelineState(graphicsPipelineState);
+			commandList->IASetVertexBuffers(0, 1, &vertexBufferView);
+			// 形状を設定
+			commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			// 描画
 			commandList->DrawInstanced(3, 1, 0, 0);
+#pragma endregion
 
-
-			//画面に描く処理はすべて終わり、画面に映すので、状態を遷移
-			//今回RenderTargetからPresentにする
+			///////////////////////////////////////
+			/// ResourceStateを入れ替える
+			///////////////////////////////////////
+#pragma region
 			barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 			barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-			//TransitionBarrierを張る
 			commandList->ResourceBarrier(1, &barrier);
 
-			//コマンドリストの内容を確定させる。すべてのコマンドを積んでからCloseすること
+#pragma endregion
+
+			///////////////////////////////////////
+			///	コマンドリストを確定させる
+			///////////////////////////////////////
+#pragma region
+			// コマンドリストの内容を確定させる。全てのコマンドを積んでからCloseすること
 			hr = commandList->Close();
 			assert(SUCCEEDED(hr));
+#pragma endregion
 
-			//コマンドをキックする//
-
-			//GPU2コマンドリストの実行を行わせる
+			///////////////////////////////////////
+			///	コマンドをキックする
+			///////////////////////////////////////
+#pragma region
+			// GPUにコマンドリストの実行を行わせる
 			ID3D12CommandList* commandLists[] = { commandList };
 			commandQueue->ExecuteCommandLists(1, commandLists);
-			//GPUとOSに画面の交換を行うよう通知する
+			// GPUとOSに画面の交換を行うよう通知する
 			swapChain->Present(1, 0);
+#pragma endregion
 
-			//GPUにSignalを送る//
-
-			//Fenceの値を更新
+			///////////////////////////////////////
+			///	キックしおわったらGPUにSignalを送る
+			///////////////////////////////////////
+#pragma region
+			// Fenceの値を更新
 			FenceValue++;
-			//GPUがここまでたどり着いたとき、Fenceの値に代入するようにSignalを送る
+			// GPUがここまでたどり着いた時に、Fenceの値を指定した値に代入するようにSignalを送る
 			commandQueue->Signal(fence, FenceValue);
 
+#pragma endregion
 
-			//Fenceの値を確認してGPUを待つ
-
-			//Fenceの値が指定したSognal値にたどり着いているか確認する
-			//GetCompletedValueの初期値はFence作成時に渡した初期値
-			if (fence->GetCompletedValue() < FenceValue) {
-				//指定したSignalにたどりついていないので、たどりつくまで待つようにイベントを設定する
+			///////////////////////////////////////
+			///	Feenceの値を確認してGPUを待つ
+			///////////////////////////////////////
+#pragma region
+			// Fenceの値が指定したSignal値にたどり着いているか確認する
+			// GetCompletedValueの初期値はFence作成時に渡した初期値
+			if (fence->GetCompletedValue() < FenceValue)
+			{
+				// 指定したSignalにたどりついていないので、たどり着くまで待つようにイベントを設定する
 				fence->SetEventOnCompletion(FenceValue, fenceEvent);
-				//イベントを待つ
+				// イベント待つ
 				WaitForSingleObject(fenceEvent, INFINITE);
 			}
+#pragma endregion
 
-			//次のフレーム用のコマンドリストを準備
+			///////////////////////////////////////
+			/// 次のフレーム用のコマンドリストを準備
+			///////////////////////////////////////
+#pragma region
 			hr = commandAllocator->Reset();
 			assert(SUCCEEDED(hr));
 			hr = commandList->Reset(commandAllocator, nullptr);
 			assert(SUCCEEDED(hr));
-
-
-
-
-
-
+#pragma endregion
 
 
 		}
@@ -1036,7 +1049,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 
 
 	///////////////////////////////////////
-	/// returnの前に行う
 	///	解放処理
 	///////////////////////////////////////
 #pragma region
